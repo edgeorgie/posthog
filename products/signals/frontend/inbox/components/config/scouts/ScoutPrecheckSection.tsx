@@ -140,7 +140,10 @@ export function ScoutPrecheckSection({
                                     </span>
                                 ) : null}
                                 {result ? (
-                                    <div className="flex flex-col gap-1" data-attr="scout-precheck-result">
+                                    <div
+                                        className="flex flex-col gap-1 ph-no-capture ph-replay-block"
+                                        data-attr="scout-precheck-result"
+                                    >
                                         <span
                                             className={`text-[11.5px] ${result.would_run ? 'text-default' : 'text-success'}`}
                                         >
