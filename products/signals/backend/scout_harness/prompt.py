@@ -1415,8 +1415,7 @@ def build_run_prompt(
 
     `precheck_rows` are the rows the pre-check query found when it started a scheduled run. They
     render in a `<precheck_result>` block in the per-run block, capped at `MAX_PRECHECK_ROWS_BYTES`.
-    Blank or None renders nothing, which is every run without a pre-check or with
-    `precheck_pass_rows` off.
+    Blank or None renders nothing, which is every run without a pre-check.
 
     Every prompt carries the self-validation follow-ups section: the scout keeps a `followup:`
     scratchpad queue and decides for itself, run by run, whether to spend the run validating it —

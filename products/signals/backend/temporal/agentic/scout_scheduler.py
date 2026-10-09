@@ -293,7 +293,7 @@ class RunSignalsScoutWorkflow:
                     runtime_s=0.0,
                     skill_name=input.skill_name,
                     skill_version=input.skill_version or 0,
-                    skip_reason="precheck_no_rows",
+                    skip_reason="precheck_skipped",
                 )
             if precheck.rows_text:
                 input = replace(input, precheck_rows=precheck.rows_text)
