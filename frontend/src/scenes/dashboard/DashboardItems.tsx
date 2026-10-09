@@ -39,7 +39,9 @@ import { insightsModel } from '~/models/insightsModel'
 import { DashboardLayoutSize, DashboardPlacement, DashboardType } from '~/types'
 
 import { DashboardTextItem } from 'products/dashboards/frontend/components/DashboardTextItem/DashboardTextItem'
+import { DashboardTileDecorations } from 'products/dashboards/frontend/components/DashboardTileDecorations/DashboardTileDecorations'
 import { getDashboardTileSpacingGap } from 'products/dashboards/frontend/dashboardCustomization'
+import { getGroupTitlesByTileId } from 'products/dashboards/frontend/dashboardTileGroups'
 
 import { DashboardButtonTileItem } from './items/DashboardButtonTileItem'
 import { DashboardErrorTileItem } from './items/DashboardErrorTileItem'
@@ -258,6 +260,11 @@ export function DashboardItems({ showCreateAnomalyAlertButton }: DashboardItemsP
     const margin = useMemo(
         () => BASE_MARGIN.map(() => gridGap * spacingFactor) as [number, number],
         [gridGap, spacingFactor]
+    )
+
+    const groupTitlesByTileId = useMemo(
+        () => getGroupTitlesByTileId(tiles || [], layouts['sm'], dashboard?.customization?.group_titles),
+        [tiles, layouts, dashboard?.customization?.group_titles]
     )
 
     const showResizeHandles = layoutEditMode && !isMobileView && isEditablePlacement && !isLayoutZoomToggled
@@ -511,6 +518,13 @@ export function DashboardItems({ showCreateAnomalyAlertButton }: DashboardItemsP
                                 return l.i == tile.id.toString()
                             })
 
+                            const decorations = (
+                                <DashboardTileDecorations
+                                    badge={tile.badge}
+                                    groupTitle={groupTitlesByTileId[tile.id]}
+                                />
+                            )
+
                             const commonTileProps = {
                                 dashboardId: dashboard?.id,
                                 canEditDashboard,
@@ -542,7 +556,9 @@ export function DashboardItems({ showCreateAnomalyAlertButton }: DashboardItemsP
                                         onEnterEditModeFromEdge={onEnterEditModeFromEdge}
                                         onDragHandleMouseDown={onDragHandleMouseDown}
                                         showEditingControls={showEditingControls}
-                                    />
+                                    >
+                                        {decorations}
+                                    </MemoizedDashboardErrorTileItem>
                                 )
                             }
 
@@ -602,7 +618,9 @@ export function DashboardItems({ showCreateAnomalyAlertButton }: DashboardItemsP
                                         surveyOpportunity={tile.id === bestSurveyOpportunityFunnel?.id}
                                         showCreateAnomalyAlertButton={showCreateAnomalyAlertButton}
                                         {...commonTileProps}
-                                    />
+                                    >
+                                        {decorations}
+                                    </MemoizedInsightCard>
                                 )
                             }
 
@@ -627,7 +645,9 @@ export function DashboardItems({ showCreateAnomalyAlertButton }: DashboardItemsP
                                         canEnterEditModeFromEdge={commonTileProps.canEnterEditModeFromEdge}
                                         onEnterEditModeFromEdge={commonTileProps.onEnterEditModeFromEdge}
                                         onDragHandleMouseDown={commonTileProps.onDragHandleMouseDown}
-                                    />
+                                    >
+                                        {decorations}
+                                    </MemoizedDashboardTextItem>
                                 )
                             }
 
@@ -652,7 +672,9 @@ export function DashboardItems({ showCreateAnomalyAlertButton }: DashboardItemsP
                                         canEnterEditModeFromEdge={commonTileProps.canEnterEditModeFromEdge}
                                         onEnterEditModeFromEdge={commonTileProps.onEnterEditModeFromEdge}
                                         onDragHandleMouseDown={commonTileProps.onDragHandleMouseDown}
-                                    />
+                                    >
+                                        {decorations}
+                                    </MemoizedDashboardButtonTileItem>
                                 )
                             }
 
@@ -700,7 +722,9 @@ export function DashboardItems({ showCreateAnomalyAlertButton }: DashboardItemsP
                                         canEnterEditModeFromEdge={commonTileProps.canEnterEditModeFromEdge}
                                         onEnterEditModeFromEdge={commonTileProps.onEnterEditModeFromEdge}
                                         onDragHandleMouseDown={commonTileProps.onDragHandleMouseDown}
-                                    />
+                                    >
+                                        {decorations}
+                                    </MemoizedDashboardWidgetItem>
                                 )
                             }
                         })}

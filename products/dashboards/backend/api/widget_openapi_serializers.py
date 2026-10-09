@@ -7,6 +7,9 @@ package.
 """
 
 from products.dashboards.backend.widget_specs.openapi import (
+    GROUP_TITLES_HELP_TEXT,
+    MAX_GROUP_KEY_LENGTH,
+    MAX_GROUP_TITLE_LENGTH,
     WIDGET_BATCH_ADD_OPENAPI_HELP,
     WIDGET_CONFIG_SERIALIZERS,
     AddDashboardWidgetRequestOpenApi,
@@ -32,6 +35,9 @@ __all__ = [
     "UpdateDashboardWidgetRequestOpenApi",
     "WidgetCatalogEntryOpenApi",
     "WidgetCatalogResponseSerializer",
+    "GROUP_TITLES_HELP_TEXT",
+    "MAX_GROUP_KEY_LENGTH",
+    "MAX_GROUP_TITLE_LENGTH",
     "WIDGET_BATCH_ADD_OPENAPI_HELP",
     "WIDGET_CONFIG_SERIALIZERS",
     *[serializer.__name__ for serializer in WIDGET_CONFIG_SERIALIZERS.values()],
