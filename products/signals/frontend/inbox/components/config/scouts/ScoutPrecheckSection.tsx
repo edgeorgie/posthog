@@ -89,8 +89,9 @@ export function ScoutPrecheckSection({
         onUnsavedChange?.(unsaved)
         return () => onUnsavedChange?.(false)
     }, [unsaved, onUnsavedChange])
-    // A result describes the query it ran. Once the text changes, it no longer applies.
-    const result = testRun && testRun.query === query ? testRun.result : null
+    // A result describes the query it ran. Once the text changes, or a newer test is running or failed,
+    // it no longer applies.
+    const result = testRun && testRun.query === query && !testRunLoading && !testRunFailed ? testRun.result : null
     const disabledReason = updating ? 'Saving scout settings' : undefined
     const saveDisabledReason =
         disabledReason ??
