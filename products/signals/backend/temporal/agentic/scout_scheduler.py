@@ -125,6 +125,8 @@ def resume_signals_scout_workflow_step(input: RunSignalsScoutInput, output: RunS
 @frozen
 class EvaluateScoutPrecheckOutput:
     should_run: bool
+    # The capped rows the run renders into its prompt. None when there are no rows to pass.
+    rows_text: str | None = None
 
 
 @temporalio.activity.defn
@@ -134,7 +136,9 @@ async def evaluate_signals_scout_precheck_activity(input: RunSignalsScoutInput) 
     result = await database_sync_to_async(evaluate_scout_precheck, thread_sensitive=False)(
         input.team_id, input.skill_name
     )
-    return EvaluateScoutPrecheckOutput(should_run=result is None or result.should_run)
+    if result is None:
+        return EvaluateScoutPrecheckOutput(should_run=True)
+    return EvaluateScoutPrecheckOutput(should_run=result.should_run, rows_text=result.rows_text)
 
 
 @temporalio.activity.defn
