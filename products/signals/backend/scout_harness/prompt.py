@@ -1311,7 +1311,7 @@ def _precheck_result_section(precheck_rows: str | None) -> str:
     if len(rows.encode("utf-8")) > MAX_PRECHECK_ROWS_BYTES:
         # Cut at a line, so the block never ends on half a JSON object.
         cut = rows.encode("utf-8")[:MAX_PRECHECK_ROWS_BYTES].decode("utf-8", errors="ignore")
-        rows = cut.rsplit("\n", 1)[0] if "\n" in cut else cut
+        rows = cut.rsplit("\n", 1)[0]
     # A row that holds the closing tag must not end the block early.
     rows = rows.replace("</precheck_result>", "<\\/precheck_result>")
     return _PRECHECK_RESULT_TEMPLATE.format(rows=rows)
