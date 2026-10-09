@@ -107,11 +107,11 @@ from products.canvas.backend.models import Canvas
 from products.canvas.backend.sharing import (
     CanvasNotPublished as CanvasNotPublished,
     canvas_app_path as canvas_app_path,
-    canvas_has_ready_build as canvas_has_ready_build,
+    canvas_has_ready_build,
     canvas_is_shareable as canvas_is_shareable,
-    clear_shared_build as clear_shared_build,
-    pin_shared_build as pin_shared_build,
-    shared_canvas_payload as shared_canvas_payload,
+    clear_shared_build,
+    pin_shared_build,
+    shared_canvas_payload,
     user_can_access_canvas as user_can_access_canvas,
 )
 from products.canvas.backend.source import (
@@ -124,6 +124,36 @@ from products.canvas.backend.teaching import (
     seed_teaching_canvas as seed_teaching_canvas,
 )
 from products.tasks.backend.facade import api as tasks_facade
+
+
+def canvas_has_ready_published_build(team_id: int, canvas_id: UUID | str) -> bool:
+    canvas = Canvas.objects.for_team(team_id).select_related("published_build").get(id=canvas_id)
+    return canvas_has_ready_build(canvas)
+
+
+def pin_canvas_shared_build(team_id: int, canvas_id: UUID | str) -> None:
+    canvas = Canvas.objects.for_team(team_id).select_related("published_build").get(id=canvas_id)
+    pin_shared_build(canvas)
+
+
+def clear_canvas_shared_build(team_id: int, canvas_id: UUID | str) -> None:
+    canvas = Canvas.objects.for_team(team_id).get(id=canvas_id)
+    clear_shared_build(canvas)
+
+
+def canvas_shared_payload(
+    team_id: int,
+    canvas_id: UUID | str,
+    *,
+    use_published_build: bool,
+    share_token: str | None,
+) -> dict[str, Any]:
+    canvas = Canvas.objects.for_team(team_id).select_related("shared_build", "published_build").get(id=canvas_id)
+    return shared_canvas_payload(
+        canvas,
+        build=canvas.published_build if use_published_build else None,
+        share_token=share_token,
+    )
 
 
 def fork_canvas(

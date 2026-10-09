@@ -85,11 +85,11 @@ from products.canvas.backend.facade.api import (
     CanvasNotPublished,
     artifact_origin as canvas_artifact_origin,
     canvas_app_path,
-    canvas_has_ready_build,
+    canvas_has_ready_published_build,
     canvas_is_shareable,
-    clear_shared_build,
-    pin_shared_build,
-    shared_canvas_payload,
+    canvas_shared_payload,
+    clear_canvas_shared_build,
+    pin_canvas_shared_build,
     user_can_access_canvas,
 )
 from products.cohorts.backend.models.cohort import Cohort
@@ -860,7 +860,7 @@ class SharingConfigurationViewSet(
             if not canvas_is_shareable(kind=canvas.kind, deleted=canvas.deleted):
                 raise ValidationError("This kind of canvas can't be shared publicly yet.")
             # A public link is a capture of a published build, so there has to be one to capture.
-            if not canvas_has_ready_build(canvas):
+            if not canvas_has_ready_published_build(self.team_id, canvas.pk):
                 raise ValidationError("Publish the canvas before sharing it.")
 
         # Publishing is the access decision for shared links (queries on the public page execute
@@ -900,11 +900,11 @@ class SharingConfigurationViewSet(
             if canvas is not None and "enabled" in request.data:
                 if instance.enabled and not was_enabled:
                     try:
-                        pin_shared_build(canvas)
+                        pin_canvas_shared_build(self.team_id, canvas.pk)
                     except CanvasNotPublished:
                         raise ValidationError("Publish the canvas before sharing it.")
                 elif not instance.enabled:
-                    clear_shared_build(canvas)
+                    clear_canvas_shared_build(self.team_id, canvas.pk)
             if context.get("task_artifact_identity") and "enabled" in request.data:
                 if instance.enabled and not was_enabled and instance.task_artifact_id is not None:
                     if not tasks_facade.pin_shared_task_artifact(
@@ -1040,7 +1040,7 @@ class SharingConfigurationViewSet(
         with transaction.atomic():
             if canvas is not None:
                 try:
-                    pin_shared_build(canvas)
+                    pin_canvas_shared_build(self.team_id, canvas.pk)
                 except CanvasNotPublished:
                     raise ValidationError("Publish the canvas before updating its public link.")
             elif context.get("task_artifact_identity") and instance.task_artifact_id is not None:
@@ -1981,9 +1981,10 @@ class SharingViewerPageViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSe
             asset_description = resource.canvas.description or ""
             # The payload carries a freshly signed artifact URL, so it is only built here, after
             # the share token (and any password) has been validated above.
-            canvas_payload = shared_canvas_payload(
-                resource.canvas,
-                build=None if resource.enabled else resource.canvas.published_build,
+            canvas_payload = canvas_shared_payload(
+                resource.team_id,
+                resource.canvas_id,
+                use_published_build=not resource.enabled,
                 share_token=resource.access_token if resource.enabled else None,
             )
             # A password unlock lives in the public page's session, which the authenticated fork

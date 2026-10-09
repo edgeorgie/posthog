@@ -79,7 +79,6 @@ def _artifact_delivery_enabled(keys: list[str]) -> bool:
     return bool(settings.DEBUG or settings.TEST) or (len(keys[0]) >= 32 and _configured_artifact_host() is not None)
 
 
-
 def _share_generation(access_token: str) -> str:
     """A non-secret tag for one generation of a public link, derived from its access token.
 
