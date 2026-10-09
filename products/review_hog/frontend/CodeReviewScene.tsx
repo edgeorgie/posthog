@@ -66,6 +66,7 @@ import {
 import { SectionHeader } from './SectionHeader'
 import { FullReviewSettingsSection } from './settings/FullReviewSettingsSection'
 import { InboxSection } from './settings/InboxSection'
+import { ReviewKindsDefinitions } from './settings/ReviewKindsDefinitions'
 
 /** "review-hog-perspective-logic-correctness" → "Logic correctness" */
 function prettifySkillName(skillName: string): string {
@@ -1541,11 +1542,7 @@ function SettingsTab(): JSX.Element {
     return (
         <>
             <section className="flex flex-col gap-3">
-                <p className="m-0 text-sm text-secondary">
-                    Standard runs automatically on every push, following the rules below. Deep runs only when someone
-                    asks for it: the Review button, the reviewhog label, or the Inbox. No Standard review runs on a pull
-                    request after it had a Deep review.
-                </p>
+                <ReviewKindsDefinitions />
                 <InstallationClaims />
                 <RepositoriesPanes />
             </section>

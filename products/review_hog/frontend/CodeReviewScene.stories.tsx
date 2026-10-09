@@ -558,6 +558,7 @@ export const Settings: Story = {
         await expect(canvas.getByText('Reviewed in the Billing project')).toBeVisible()
         await expect(canvas.getByText('You can edit: project admin')).toBeVisible()
         await expect(canvas.getByText('Deep review settings')).toBeVisible()
+        await expect(canvas.getByText('Two kinds of review')).toBeVisible()
         await expect(canvas.queryByText('Review a pull request')).not.toBeInTheDocument()
         await expect(
             canvas.queryByLabelText('Review PRs the agent opens for Inbox reports assigned to me')

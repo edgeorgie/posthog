@@ -11,9 +11,9 @@ import { SettingRow } from './SettingRow'
 import { SettingsTable } from './SettingsTable'
 
 const THRESHOLD_OPTIONS: { value: UrgencyThresholdEnumApi; label: string }[] = [
-    { value: 'consider', label: 'Consider (all)' },
-    { value: 'should_fix', label: 'Should fix' },
-    { value: 'must_fix', label: 'Must fix' },
+    { value: 'consider', label: 'All findings' },
+    { value: 'should_fix', label: 'Should fix and above' },
+    { value: 'must_fix', label: 'Must fix only' },
 ]
 
 type OnOff = 'on' | 'off'
@@ -30,7 +30,7 @@ const ON_OFF_OPTIONS: { value: OnOff; label: string }[] = [
 /**
  * "Mine" offers the project value as a follow option plus every other value. The project value
  * shows twice only while an own value equals it: one saved before the project value changed.
- * Picking "(project)" then clears it.
+ * Picking "Same as project" then clears it.
  */
 function mineOptions<T extends string>(
     options: { value: T; label: string }[],
@@ -39,7 +39,7 @@ function mineOptions<T extends string>(
 ): { value: T | 'project'; label: string }[] {
     const projectLabel = options.find((option) => option.value === projectValue)?.label ?? projectValue
     return [
-        { value: 'project', label: `${projectLabel} (project)` },
+        { value: 'project', label: `Same as project (${projectLabel})` },
         ...options.filter((option) => option.value !== projectValue || option.value === ownValue),
     ]
 }
@@ -87,7 +87,7 @@ export function FullReviewSettingsSection({ onEditSkills }: { onEditSkills: () =
             />
             <SettingRow
                 title="Post findings at or above"
-                description="Applies to Deep reviews you start. Lower findings stay in the report on the PostHog side."
+                description="Applies to Deep reviews you start. Findings below this stay in the review report in PostHog."
                 project={
                     <LemonSelect<UrgencyThresholdEnumApi>
                         size="small"
@@ -153,7 +153,7 @@ export function FullReviewSettingsSection({ onEditSkills }: { onEditSkills: () =
             />
             <SettingRow
                 title="Perspectives, blind spots, validation and resolution criteria"
-                description="Applies to Deep reviews you start. Resolution criteria also pick how fixes work: default, big gaps only, or small fixes only."
+                description="Applies to Deep reviews you start: the perspectives (the angles the review reads the code from), the blind-spot check, the quality bar, and how Resolve fixes."
                 project={<span className="text-xs text-secondary">Skills shared in this project</span>}
                 mine={
                     <>
