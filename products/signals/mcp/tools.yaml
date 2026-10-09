@@ -637,8 +637,8 @@ tools:
             without saving anything. Pass `precheck_query` to try a query before you save it with `scout-config-update`,
             or omit it to try the saved one. The query gets the same `{since}` (the start of the last run that ran) and
             `{now}` values the next scheduled run would get. `would_run` and `reason` say whether that run would start
-            (`rows`, `query_error`) or skip (`no_rows`, `false_value`). `rows_text` is the text the scout reads, one JSON
-            object per line. A query error comes back in `error`: fix the query and test again.
+            (`rows`, `query_error`) or skip (`no_rows`, `false_value`). `rows_text` is the text the scout reads, one
+            JSON object per line. A query error comes back in `error`: fix the query and test again.
     scout-config-sync:
         operation: signals_scout_config_sync
         enabled: true
@@ -677,8 +677,8 @@ tools:
             with integrations-users-retrieve. Set `precheck_query` to a HogQL `SELECT` so a scheduled run starts only
             when the query returns something: no rows, or one false value such as a zero `count()`, skips the run;
             `{since}` and `{now}` bind the last run that ran and the current time. Try the query with
-            `scout-config-precheck-test` first. `skill_name` is fixed. Enabling records who flipped it on and
-            is activity-logged, since running a scout drives spend.
+            `scout-config-precheck-test` first. `skill_name` is fixed. Enabling records who flipped it on and is
+            activity-logged, since running a scout drives spend.
     scout-create:
         operation: signals_scout_create
         enabled: true
