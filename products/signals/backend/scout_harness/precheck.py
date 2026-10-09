@@ -69,6 +69,12 @@ class PrecheckResult:
 
 
 @frozen
+class _PrecheckRows:
+    columns: list[Any]
+    rows: list[Any]
+
+
+@frozen
 class PrecheckDryRunResult:
     would_run: bool
     reason: PrecheckReason
@@ -113,8 +119,8 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
         result = PrecheckResult(outcome="run", reason="max_quiet")
     else:
         try:
-            columns, rows = _run_query(team, config.precheck_query, since=since, now=now)
-            rows_text, row_count = _render_rows(columns, rows), len(rows)
+            found = _run_query(team, config.precheck_query, since=since, now=now)
+            rows_text, row_count = _render_rows(found), len(found.rows)
         except Exception as error:
             error_type = type(error).__name__
             logger.warning(
@@ -156,7 +162,7 @@ def dry_run_scout_precheck(
         config.precheck_max_quiet_minutes and now - since >= timedelta(minutes=config.precheck_max_quiet_minutes)
     )
     try:
-        columns, rows = _run_query(team, query, since=since, now=now)
+        found = _run_query(team, query, since=since, now=now)
     except Exception as error:
         logger.info(
             "signals_scout: pre-check dry run failed",
@@ -170,15 +176,15 @@ def dry_run_scout_precheck(
         return PrecheckDryRunResult(
             would_run=True, reason="max_quiet" if max_quiet else "query_error", since=since, now=now, error=message
         )
-    reason: PrecheckReason = "max_quiet" if max_quiet else "rows" if rows else "no_rows"
+    reason: PrecheckReason = "max_quiet" if max_quiet else "rows" if found.rows else "no_rows"
     return PrecheckDryRunResult(
         would_run=reason != "no_rows",
         reason=reason,
         since=since,
         now=now,
-        row_count=len(rows),
-        columns=tuple(str(column) for column in columns),
-        rows_text=_render_rows(columns, rows),
+        row_count=len(found.rows),
+        columns=tuple(str(column) for column in found.columns),
+        rows_text=_render_rows(found),
     )
 
 
@@ -195,7 +201,7 @@ def precheck_since(config: SignalScoutConfig) -> datetime:
     return last_run_at or config.created_at
 
 
-def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> tuple[list[Any], list[Any]]:
+def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> _PrecheckRows:
     inner = parse_select(query, placeholders={"since": ast.Constant(value=since), "now": ast.Constant(value=now)})
     # The outer limit caps the rows whatever the owner wrote, including a union or no LIMIT at all.
     capped = ast.SelectQuery(
@@ -211,15 +217,15 @@ def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> tup
             workload=Workload.OFFLINE,
             settings=HogQLGlobalSettings(max_execution_time=PRECHECK_TIMEOUT_S),
         )
-    return response.columns or [], response.results or []
+    return _PrecheckRows(columns=response.columns or [], rows=response.results or [])
 
 
-def _render_rows(columns: list[Any], rows: list[Any]) -> str:
+def _render_rows(found: _PrecheckRows) -> str:
     """Render rows one JSON object per line, and stop before the text passes the size cap."""
     lines: list[str] = []
     size = 0
-    for row in rows:
-        line = json.dumps(dict(zip(columns, row)), default=str, ensure_ascii=False)
+    for row in found.rows:
+        line = json.dumps(dict(zip(found.columns, row)), default=str, ensure_ascii=False)
         size += len(line.encode("utf-8")) + 1
         if size > PRECHECK_MAX_TEXT_BYTES:
             break
