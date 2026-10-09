@@ -14,8 +14,13 @@ export interface ScoutPrecheckLogicProps {
     surface: ScoutSurface
 }
 
-export interface ScoutPrecheckTestRun {
+export interface ScoutPrecheckTestRequest {
     query: string
+    /** The "Run anyway after" setting the test runs against. The verdict depends on it. */
+    maxQuietMinutes: number | null
+}
+
+export interface ScoutPrecheckTestRun extends ScoutPrecheckTestRequest {
     result: SignalScoutPrecheckTestApi
 }
 
@@ -43,7 +48,7 @@ export interface scoutPrecheckLogicActions {
         testRun: null
         payload?: any
     }
-    testPrecheck: (query: string) => string
+    testPrecheck: ({ query, maxQuietMinutes }: ScoutPrecheckTestRequest) => ScoutPrecheckTestRequest
     testPrecheckFailure: (
         error: string,
         errorObject?: any
@@ -53,16 +58,18 @@ export interface scoutPrecheckLogicActions {
     }
     testPrecheckSuccess: (
         testRun: {
+            maxQuietMinutes: number | null
             query: string
             result: SignalScoutPrecheckTestApi
         } | null,
-        payload?: string
+        payload?: ScoutPrecheckTestRequest
     ) => {
         testRun: {
+            maxQuietMinutes: number | null
             query: string
             result: SignalScoutPrecheckTestApi
         } | null
-        payload?: string
+        payload?: ScoutPrecheckTestRequest
     }
 }
 
@@ -91,7 +98,7 @@ export const scoutPrecheckLogic = kea<scoutPrecheckLogicType>([
         testRun: [
             null as ScoutPrecheckTestRun | null,
             {
-                testPrecheck: async (query: string, breakpoint) => {
+                testPrecheck: async ({ query, maxQuietMinutes }: ScoutPrecheckTestRequest, breakpoint) => {
                     const teamId = teamLogic.values.currentTeamId
                     if (!teamId) {
                         return null
@@ -101,7 +108,7 @@ export const scoutPrecheckLogic = kea<scoutPrecheckLogicType>([
                     })
                     // A second test can start while the first is in flight. Only the newest answers.
                     breakpoint()
-                    return { query, result }
+                    return { query, maxQuietMinutes, result }
                 },
                 clearTestRun: () => null,
             },

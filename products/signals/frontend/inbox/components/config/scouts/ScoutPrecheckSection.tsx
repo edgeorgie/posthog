@@ -89,9 +89,17 @@ export function ScoutPrecheckSection({
         onUnsavedChange?.(unsaved)
         return () => onUnsavedChange?.(false)
     }, [unsaved, onUnsavedChange])
-    // A result describes the query it ran. Once the text changes, or a newer test is running or failed,
-    // it no longer applies.
-    const result = testRun && testRun.query === query && !testRunLoading && !testRunFailed ? testRun.result : null
+    const maxQuietMinutes = config.precheck_max_quiet_minutes ?? null
+    // A result describes the query and the "Run anyway after" setting it ran with. Once either changes,
+    // or a newer test is running or failed, it no longer applies.
+    const result =
+        testRun &&
+        testRun.query === query &&
+        testRun.maxQuietMinutes === maxQuietMinutes &&
+        !testRunLoading &&
+        !testRunFailed
+            ? testRun.result
+            : null
     const disabledReason = updating ? 'Saving scout settings' : undefined
     const saveDisabledReason =
         disabledReason ??
@@ -208,14 +216,13 @@ export function ScoutPrecheckSection({
                                         size="small"
                                         type="secondary"
                                         loading={testRunLoading}
+                                        // The test reads the stored settings, so it waits for a save to finish.
                                         disabledReason={
                                             testRunLoading
                                                 ? 'Testing the query'
-                                                : query
-                                                  ? undefined
-                                                  : 'Write a query first'
+                                                : (disabledReason ?? (query ? undefined : 'Write a query first'))
                                         }
-                                        onClick={() => testPrecheck(query)}
+                                        onClick={() => testPrecheck({ query, maxQuietMinutes })}
                                         data-attr="scout-precheck-test"
                                     >
                                         Test query
