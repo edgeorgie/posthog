@@ -23,7 +23,7 @@ describe('getGroupTitlesByTileId', () => {
             name: 'skips groups without a title',
             tiles: [tile(1, 'plans'), tile(2, 'untitled')],
             layout: undefined,
-            groupTitles: { plans: 'Pricing plans' },
+            groupTitles: { plans: 'Pricing plans' } as Record<string, string>,
             expected: { 1: 'Pricing plans' },
         },
         {
