@@ -1,6 +1,6 @@
 import { useActions, useValues } from 'kea'
 
-import { LemonButton, LemonSelect, LemonSwitch } from '@posthog/lemon-ui'
+import { LemonSelect, LemonSwitch } from '@posthog/lemon-ui'
 
 import type { UrgencyThresholdEnumApi } from 'products/review_hog/frontend/generated/api.schemas'
 import { reviewHogProjectSettingsLogic } from 'products/review_hog/frontend/repositories/reviewHogProjectSettingsLogic'
@@ -44,7 +44,8 @@ function mineOptions<T extends string>(
     ]
 }
 
-export function FullReviewSettingsSection({ onEditSkills }: { onEditSkills: () => void }): JSX.Element {
+/** The Deep review settings with a project value: Resolve, the threshold, and the celebration. */
+export function FullReviewSettingsSection(): JSX.Element {
     const { settings, settingsLoading } = useValues(reviewHogSettingsLogic)
     const { updateSettings, followProjectDefault } = useActions(reviewHogSettingsLogic)
     const { projectSettings, editDisabledReason } = useValues(reviewHogProjectSettingsLogic)
@@ -64,10 +65,7 @@ export function FullReviewSettingsSection({ onEditSkills }: { onEditSkills: () =
             : undefined
 
     return (
-        <SettingsTable
-            title="Deep review settings"
-            description="Deep reviews use these. Standard reads none of them. A review someone else starts on your PR uses their settings, but only your own Resolve choice can push to your branch."
-        >
+        <SettingsTable>
             <SettingRow
                 title="Resolve comments on my pull requests"
                 description="Applies on your PRs. After a Deep review, ReviewHog pushes fix commits to your branch. Only your own opt-in counts, whoever starts the review. Never commits while the pull request is in the merge queue or has another pull request stacked on it. Without a PostHog account behind a PR, nothing is pushed."
@@ -148,24 +146,6 @@ export function FullReviewSettingsSection({ onEditSkills }: { onEditSkills: () =
                             disabledReason={mineDisabledReason}
                             data-attr="review-hog-celebrate-clean-reviews"
                         />
-                    </>
-                }
-            />
-            <SettingRow
-                title="Perspectives, blind spots, validation and resolution criteria"
-                description="Applies to Deep reviews you start: the perspectives (the angles the review reads the code from), the blind-spot check, the quality bar, and how Resolve fixes."
-                project={<span className="text-xs text-secondary">Skills shared in this project</span>}
-                mine={
-                    <>
-                        <YouMark shown={false} />
-                        <LemonButton
-                            size="small"
-                            type="secondary"
-                            onClick={onEditSkills}
-                            data-attr="review-hog-edit-skills"
-                        >
-                            Edit my skills
-                        </LemonButton>
                     </>
                 }
             />
