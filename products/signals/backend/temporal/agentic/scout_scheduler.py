@@ -69,6 +69,8 @@ class RunSignalsScoutInput:
     # The report check a `check` dispatch answers. Stamped on the run row so the check can name
     # its run and the run can record the check's verdict.
     check_id: str | None = None
+    # The rows the pre-check found, set by the workflow on a scheduled run the pre-check started.
+    precheck_rows: str | None = None
 
 
 @frozen
@@ -227,6 +229,7 @@ async def _run_signals_scout(input: RunSignalsScoutInput) -> RunSignalsScoutOutp
                 run_note=input.run_note,
                 trial_launch_id=input.trial_launch_id,
                 check_id=input.check_id,
+                precheck_rows=input.precheck_rows,
             )
     except (OperationalError, InterfaceError):
         # Transient DB connection drop (pgbouncer pool recycle / failover / deploy). Stay
@@ -288,6 +291,8 @@ class RunSignalsScoutWorkflow:
                     skill_version=input.skill_version or 0,
                     skip_reason="precheck_no_rows",
                 )
+            if precheck.rows_text:
+                input = replace(input, precheck_rows=precheck.rows_text)
         try:
             output = await temporalio.workflow.execute_activity(
                 run_signals_scout_activity,

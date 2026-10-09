@@ -72,14 +72,19 @@ class TestEvaluateScoutPrecheck(ClickhouseTestMixin, BaseTest):
         assert capture.call_args.kwargs["event"] == "scout_precheck_evaluated"
         assert (properties["outcome"], properties["row_count"]) == (outcome, row_count)
 
-    def test_rows_are_capped(self) -> None:
-        self._config("SELECT number FROM numbers(1000)")
+    @parameterized.expand([("pass_rows", True), ("keep_rows_out", False)])
+    def test_rows_are_capped(self, _name, pass_rows) -> None:
+        config = self._config("SELECT number FROM numbers(1000)")
+        SignalScoutConfig.all_teams.filter(pk=config.pk).update(precheck_pass_rows=pass_rows)
 
         result, _ = self._evaluate()
 
         assert result is not None
         assert result.row_count == PRECHECK_MAX_ROWS
-        assert result.rows_text is not None and len(result.rows_text.splitlines()) == PRECHECK_MAX_ROWS
+        if pass_rows:
+            assert result.rows_text is not None and len(result.rows_text.splitlines()) == PRECHECK_MAX_ROWS
+        else:
+            assert result.rows_text is None
 
     def test_query_error_runs_the_scout(self) -> None:
         self._config("SELECT nope FROM not_a_table WHERE timestamp > {since}")

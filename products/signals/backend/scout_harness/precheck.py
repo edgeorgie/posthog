@@ -38,13 +38,12 @@ from posthog.event_usage import groups
 from posthog.models import Team
 
 from products.signals.backend.models import SignalScoutConfig, SignalScoutRun
-from products.signals.backend.scout_harness.limits import SCOUT_TRIAL_METADATA_KEY
+from products.signals.backend.scout_harness.limits import MAX_PRECHECK_ROWS_BYTES, SCOUT_TRIAL_METADATA_KEY
 
 logger = structlog.get_logger(__name__)
 
 PRECHECK_TIMEOUT_S = 10
 PRECHECK_MAX_ROWS = 50
-PRECHECK_MAX_TEXT_BYTES = 8 * 1024
 
 PrecheckOutcome = Literal["run", "skip", "error"]
 # `rows`: the query found rows. `no_rows`: it found none. `max_quiet`: the backstop forced a run
@@ -57,7 +56,8 @@ class PrecheckResult:
     outcome: PrecheckOutcome
     reason: PrecheckReason
     row_count: int = 0
-    # The capped rows, one JSON object per line, for a later prompt block.
+    # The capped rows, one JSON object per line, for the run prompt. None when the config turns
+    # `precheck_pass_rows` off.
     rows_text: str | None = None
 
     @property
@@ -73,7 +73,16 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
     config = (
         SignalScoutConfig.objects.for_team(team_id)
         .filter(skill_name=skill_name)
-        .only("id", "team_id", "skill_name", "created_at", "status", "precheck_query", "precheck_max_quiet_minutes")
+        .only(
+            "id",
+            "team_id",
+            "skill_name",
+            "created_at",
+            "status",
+            "precheck_query",
+            "precheck_pass_rows",
+            "precheck_max_quiet_minutes",
+        )
         .first()
     )
     # A paused lane only runs as a breaker probe, which exists to find out whether the lane can
@@ -104,7 +113,12 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
             result = PrecheckResult(outcome="error", reason="query_error")
         else:
             result = (
-                PrecheckResult(outcome="run", reason="rows", row_count=row_count, rows_text=rows_text)
+                PrecheckResult(
+                    outcome="run",
+                    reason="rows",
+                    row_count=row_count,
+                    rows_text=rows_text if config.precheck_pass_rows else None,
+                )
                 if row_count
                 else PrecheckResult(outcome="skip", reason="no_rows")
             )
@@ -158,7 +172,7 @@ def _render_rows(columns: list[Any], rows: list[Any]) -> str:
     for row in rows:
         line = json.dumps(dict(zip(columns, row)), default=str, ensure_ascii=False)
         size += len(line.encode("utf-8")) + 1
-        if size > PRECHECK_MAX_TEXT_BYTES:
+        if size > MAX_PRECHECK_ROWS_BYTES:
             break
         lines.append(line)
     return "\n".join(lines)
