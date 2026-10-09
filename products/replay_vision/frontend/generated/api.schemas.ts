@@ -1907,20 +1907,11 @@ export interface SignalScoutConfigOptionsApi {
      */
     write_scopes?: string[]
     /**
-     * Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, the run is skipped: no sandbox, no model call, and no run row. When it returns rows, or the query fails, the run starts as usual. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() AS errors FROM events WHERE event = '$exception' AND timestamp > {since} HAVING errors > 10`. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off.
+     * Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, or one row with one false value (`false`, `0`, null or empty), the run is skipped: no sandbox, no model call, and no run row. Any other result starts the run, and the scout reads the rows. A query error also starts the run. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() FROM events WHERE event = '$exception' AND timestamp > {since}`. To run at least once a week however quiet it is, add `OR {since} < {now} - INTERVAL 7 DAY` to the condition. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off.
      * @maxLength 10000
      * @nullable
      */
     precheck_query?: string | null
-    /** Whether a run that the pre-check starts gets the pre-check rows in its prompt, so the scout starts from what the query found. Defaults to true. */
-    precheck_pass_rows?: boolean
-    /**
-     * Optional backstop in minutes (30–43200). A scheduled run starts without the pre-check when the last run that ran is at least this old, so the scout's baselines and memory stay current. Null means a scout with a pre-check can stay quiet for any length of time.
-     * @minimum 30
-     * @maximum 43200
-     * @nullable
-     */
-    precheck_max_quiet_minutes?: number | null
     /** Whether this scout runs on its schedule. Defaults to true. */
     enabled?: boolean
     /** Whether the scout writes findings to the inbox. False = dry-run: it runs and logs but emits nothing. Defaults to true. */
@@ -2175,17 +2166,10 @@ export interface SignalScoutConfigApi {
      */
     readonly write_scopes: readonly string[]
     /**
-     * Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, the run is skipped: no sandbox, no model call, and no run row. When it returns rows, or the query fails, the run starts as usual. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() AS errors FROM events WHERE event = '$exception' AND timestamp > {since} HAVING errors > 10`. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off.
+     * Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, or one row with one false value (`false`, `0`, null or empty), the run is skipped: no sandbox, no model call, and no run row. Any other result starts the run, and the scout reads the rows. A query error also starts the run. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() FROM events WHERE event = '$exception' AND timestamp > {since}`. To run at least once a week however quiet it is, add `OR {since} < {now} - INTERVAL 7 DAY` to the condition. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off.
      * @nullable
      */
     readonly precheck_query: string | null
-    /** Whether a run that the pre-check starts gets the pre-check rows in its prompt, so the scout starts from what the query found. Defaults to true. */
-    readonly precheck_pass_rows: boolean
-    /**
-     * Optional backstop in minutes (30–43200). A scheduled run starts without the pre-check when the last run that ran is at least this old, so the scout's baselines and memory stay current. Null means a scout with a pre-check can stay quiet for any length of time.
-     * @nullable
-     */
-    readonly precheck_max_quiet_minutes: number | null
     /**
      * When the coordinator last dispatched this scout. Null if it has never run.
      * @nullable

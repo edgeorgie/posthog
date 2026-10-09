@@ -778,9 +778,6 @@ export const signalsScoutCreateBodyConfigOneWriteScopesMax = 10
 
 export const signalsScoutCreateBodyConfigOnePrecheckQueryMax = 10000
 
-export const signalsScoutCreateBodyConfigOnePrecheckMaxQuietMinutesMin = 30
-export const signalsScoutCreateBodyConfigOnePrecheckMaxQuietMinutesMax = 43200
-
 export const signalsScoutCreateBodyConfigOneRunIntervalMinutesMin = 30
 export const signalsScoutCreateBodyConfigOneRunIntervalMinutesMax = 43200
 
@@ -888,21 +885,7 @@ export const SignalsScoutCreateBody = () => zod
                     .max(signalsScoutCreateBodyConfigOnePrecheckQueryMax)
                     .nullish()
                     .describe(
-                        "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, the run is skipped: no sandbox, no model call, and no run row. When it returns rows, or the query fails, the run starts as usual. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() AS errors FROM events WHERE event = '$exception' AND timestamp > {since} HAVING errors > 10`. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
-                    ),
-                precheck_pass_rows: zod
-                    .boolean()
-                    .optional()
-                    .describe(
-                        'Whether a run that the pre-check starts gets the pre-check rows in its prompt, so the scout starts from what the query found. Defaults to true.'
-                    ),
-                precheck_max_quiet_minutes: zod
-                    .number()
-                    .min(signalsScoutCreateBodyConfigOnePrecheckMaxQuietMinutesMin)
-                    .max(signalsScoutCreateBodyConfigOnePrecheckMaxQuietMinutesMax)
-                    .nullish()
-                    .describe(
-                        "Optional backstop in minutes (30–43200). A scheduled run starts without the pre-check when the last run that ran is at least this old, so the scout's baselines and memory stay current. Null means a scout with a pre-check can stay quiet for any length of time."
+                        "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, or one row with one false value (`false`, `0`, null or empty), the run is skipped: no sandbox, no model call, and no run row. Any other result starts the run, and the scout reads the rows. A query error also starts the run. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() FROM events WHERE event = '$exception' AND timestamp > {since}`. To run at least once a week however quiet it is, add `OR {since} < {now} - INTERVAL 7 DAY` to the condition. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
                     ),
                 enabled: zod
                     .boolean()
@@ -1072,9 +1055,6 @@ export const signalsScoutConfigCreateBodyWriteScopesMax = 10
 
 export const signalsScoutConfigCreateBodyPrecheckQueryMax = 10000
 
-export const signalsScoutConfigCreateBodyPrecheckMaxQuietMinutesMin = 30
-export const signalsScoutConfigCreateBodyPrecheckMaxQuietMinutesMax = 43200
-
 export const signalsScoutConfigCreateBodyRunIntervalMinutesMin = 30
 export const signalsScoutConfigCreateBodyRunIntervalMinutesMax = 43200
 
@@ -1142,21 +1122,7 @@ export const SignalsScoutConfigCreateBody = () => zod
             .max(signalsScoutConfigCreateBodyPrecheckQueryMax)
             .nullish()
             .describe(
-                "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, the run is skipped: no sandbox, no model call, and no run row. When it returns rows, or the query fails, the run starts as usual. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() AS errors FROM events WHERE event = '$exception' AND timestamp > {since} HAVING errors > 10`. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
-            ),
-        precheck_pass_rows: zod
-            .boolean()
-            .optional()
-            .describe(
-                'Whether a run that the pre-check starts gets the pre-check rows in its prompt, so the scout starts from what the query found. Defaults to true.'
-            ),
-        precheck_max_quiet_minutes: zod
-            .number()
-            .min(signalsScoutConfigCreateBodyPrecheckMaxQuietMinutesMin)
-            .max(signalsScoutConfigCreateBodyPrecheckMaxQuietMinutesMax)
-            .nullish()
-            .describe(
-                "Optional backstop in minutes (30–43200). A scheduled run starts without the pre-check when the last run that ran is at least this old, so the scout's baselines and memory stay current. Null means a scout with a pre-check can stay quiet for any length of time."
+                "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, or one row with one false value (`false`, `0`, null or empty), the run is skipped: no sandbox, no model call, and no run row. Any other result starts the run, and the scout reads the rows. A query error also starts the run. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() FROM events WHERE event = '$exception' AND timestamp > {since}`. To run at least once a week however quiet it is, add `OR {since} < {now} - INTERVAL 7 DAY` to the condition. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
             ),
         enabled: zod.boolean().optional().describe('Whether this scout runs on its schedule. Defaults to true.'),
         emit: zod
@@ -1313,9 +1279,6 @@ export const signalsScoutConfigUpdateBodyRepositoriesMax = 10
 export const signalsScoutConfigUpdateBodyWriteScopesMax = 10
 
 export const signalsScoutConfigUpdateBodyPrecheckQueryMax = 10000
-
-export const signalsScoutConfigUpdateBodyPrecheckMaxQuietMinutesMin = 30
-export const signalsScoutConfigUpdateBodyPrecheckMaxQuietMinutesMax = 43200
 
 export const signalsScoutConfigUpdateBodySuggestionIdMax = 64
 
@@ -1476,21 +1439,7 @@ export const SignalsScoutConfigUpdateBody = () => zod
             .max(signalsScoutConfigUpdateBodyPrecheckQueryMax)
             .nullish()
             .describe(
-                "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, the run is skipped: no sandbox, no model call, and no run row. When it returns rows, or the query fails, the run starts as usual. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() AS errors FROM events WHERE event = '$exception' AND timestamp > {since} HAVING errors > 10`. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
-            ),
-        precheck_pass_rows: zod
-            .boolean()
-            .optional()
-            .describe(
-                'Whether a run that the pre-check starts gets the pre-check rows in its prompt, so the scout starts from what the query found. Defaults to true.'
-            ),
-        precheck_max_quiet_minutes: zod
-            .number()
-            .min(signalsScoutConfigUpdateBodyPrecheckMaxQuietMinutesMin)
-            .max(signalsScoutConfigUpdateBodyPrecheckMaxQuietMinutesMax)
-            .nullish()
-            .describe(
-                "Optional backstop in minutes (30–43200). A scheduled run starts without the pre-check when the last run that ran is at least this old, so the scout's baselines and memory stay current. Null means a scout with a pre-check can stay quiet for any length of time."
+                "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, or one row with one false value (`false`, `0`, null or empty), the run is skipped: no sandbox, no model call, and no run row. Any other result starts the run, and the scout reads the rows. A query error also starts the run. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() FROM events WHERE event = '$exception' AND timestamp > {since}`. To run at least once a week however quiet it is, add `OR {since} < {now} - INTERVAL 7 DAY` to the condition. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
             ),
         suggestion_id: zod
             .string()

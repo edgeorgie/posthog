@@ -48,8 +48,6 @@ function makeMockScout(overrides: MockScoutOverrides): SignalScoutConfigApi {
         network_access: 'trusted',
         model: null,
         precheck_query: null,
-        precheck_pass_rows: true,
-        precheck_max_quiet_minutes: null,
         last_run_at: null,
         consecutive_failure_count: 0,
         status_changed_at: null,

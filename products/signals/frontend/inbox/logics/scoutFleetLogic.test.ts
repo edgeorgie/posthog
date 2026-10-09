@@ -89,8 +89,6 @@ const BASE_CONFIG: SignalScoutConfigApi = {
     network_access: 'trusted',
     model: null,
     precheck_query: null,
-    precheck_pass_rows: true,
-    precheck_max_quiet_minutes: null,
     source_product: null,
     source_id: null,
     created_at: '2026-07-22T00:00:00Z',
