@@ -16,8 +16,6 @@ export interface ScoutPrecheckLogicProps {
 
 export interface ScoutPrecheckTestRequest {
     query: string
-    /** The "Run anyway after" setting the test runs against. The verdict depends on it. */
-    maxQuietMinutes: number | null
 }
 
 export interface ScoutPrecheckTestRun extends ScoutPrecheckTestRequest {
@@ -48,7 +46,7 @@ export interface scoutPrecheckLogicActions {
         testRun: null
         payload?: any
     }
-    testPrecheck: ({ query, maxQuietMinutes }: ScoutPrecheckTestRequest) => ScoutPrecheckTestRequest
+    testPrecheck: ({ query }: ScoutPrecheckTestRequest) => ScoutPrecheckTestRequest
     testPrecheckFailure: (
         error: string,
         errorObject?: any
@@ -58,14 +56,12 @@ export interface scoutPrecheckLogicActions {
     }
     testPrecheckSuccess: (
         testRun: {
-            maxQuietMinutes: number | null
             query: string
             result: SignalScoutPrecheckTestApi
         } | null,
         payload?: ScoutPrecheckTestRequest
     ) => {
         testRun: {
-            maxQuietMinutes: number | null
             query: string
             result: SignalScoutPrecheckTestApi
         } | null
@@ -98,7 +94,7 @@ export const scoutPrecheckLogic = kea<scoutPrecheckLogicType>([
         testRun: [
             null as ScoutPrecheckTestRun | null,
             {
-                testPrecheck: async ({ query, maxQuietMinutes }: ScoutPrecheckTestRequest, breakpoint) => {
+                testPrecheck: async ({ query }: ScoutPrecheckTestRequest, breakpoint) => {
                     const teamId = teamLogic.values.currentTeamId
                     if (!teamId) {
                         return null
@@ -108,7 +104,7 @@ export const scoutPrecheckLogic = kea<scoutPrecheckLogicType>([
                     })
                     // A second test can start while the first is in flight. Only the newest answers.
                     breakpoint()
-                    return { query, maxQuietMinutes, result }
+                    return { query, result }
                 },
                 clearTestRun: () => null,
             },
