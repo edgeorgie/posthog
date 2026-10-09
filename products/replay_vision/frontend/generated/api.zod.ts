@@ -947,6 +947,11 @@ export const visionScannersScoutsCreateBodyConfigOneRepositoriesMax = 10
 
 export const visionScannersScoutsCreateBodyConfigOneWriteScopesMax = 10
 
+export const visionScannersScoutsCreateBodyConfigOnePrecheckQueryMax = 10000
+
+export const visionScannersScoutsCreateBodyConfigOnePrecheckMaxQuietMinutesMin = 30
+export const visionScannersScoutsCreateBodyConfigOnePrecheckMaxQuietMinutesMax = 43200
+
 export const visionScannersScoutsCreateBodyConfigOneRunIntervalMinutesMin = 30
 export const visionScannersScoutsCreateBodyConfigOneRunIntervalMinutesMax = 43200
 
@@ -1031,6 +1036,27 @@ export const VisionScannersScoutsCreateBody = /* @__PURE__ */ zod
                     .optional()
                     .describe(
                         "Extra write access granted to this one scout, as scope strings. The grantable set is `alert:write`, `annotation:write`, `customer_task:write`, `dashboard:write`, `hog_flow_proposal:write`, `insight:write`, `llm_skill:write`, `replay_scanner:write`, `warehouse_table:write`, `warehouse_view:write`. Empty (the default) means the scout reads the project and writes only what every scout may write: notebooks, its findings, and its own memory. Each scope is project-wide and object-level, so a scout holding `dashboard:write` can update or delete any dashboard in the project, not only ones it made. Grant only what this scout maintains. Only the person the scout's runs act as (whoever authored it) or a project admin can set it, and a scoped API key must itself carry each scope it grants. A dry run (`emit=false`) never holds the grant. Applies from the scout's next run."
+                    ),
+                precheck_query: zod
+                    .string()
+                    .max(visionScannersScoutsCreateBodyConfigOnePrecheckQueryMax)
+                    .nullish()
+                    .describe(
+                        "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, the run is skipped: no sandbox, no model call, and no run row. When it returns rows, or the query fails, the run starts as usual. Use `{since}` (the start of the last run that ran, or when the scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() AS errors FROM events WHERE event = '$exception' AND timestamp > {since} HAVING errors > 10`. Only scheduled runs evaluate it: a manual or workflow run always starts. The query stops after 10 seconds and reads at most 50 rows. Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
+                    ),
+                precheck_pass_rows: zod
+                    .boolean()
+                    .optional()
+                    .describe(
+                        'Whether a run that the pre-check starts gets the pre-check rows in its prompt, so the scout starts from what the query found. Defaults to true.'
+                    ),
+                precheck_max_quiet_minutes: zod
+                    .number()
+                    .min(visionScannersScoutsCreateBodyConfigOnePrecheckMaxQuietMinutesMin)
+                    .max(visionScannersScoutsCreateBodyConfigOnePrecheckMaxQuietMinutesMax)
+                    .nullish()
+                    .describe(
+                        "Optional backstop in minutes (30–43200). A scheduled run starts without the pre-check when the last run that ran is at least this old, so the scout's baselines and memory stay current. Null means a scout with a pre-check can stay quiet for any length of time."
                     ),
                 enabled: zod
                     .boolean()

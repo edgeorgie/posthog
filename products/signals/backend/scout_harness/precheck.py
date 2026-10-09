@@ -28,12 +28,14 @@ import posthoganalytics
 
 from posthog.hogql import ast
 from posthog.hogql.constants import HogQLGlobalSettings
+from posthog.hogql.errors import ExposedHogQLError
 from posthog.hogql.parser import parse_select
 from posthog.hogql.query import execute_hogql_query
 
 from posthog.clickhouse.query_tagging import Feature, Product, tags_context
 from posthog.clickhouse.workload import Workload
 from posthog.dataclasses import frozen
+from posthog.errors import ExposedCHQueryError
 from posthog.event_usage import groups
 from posthog.models import Team
 
@@ -45,6 +47,7 @@ logger = structlog.get_logger(__name__)
 PRECHECK_TIMEOUT_S = 10
 PRECHECK_MAX_ROWS = 50
 PRECHECK_MAX_TEXT_BYTES = 8 * 1024
+PRECHECK_MAX_QUERY_LENGTH = 10_000
 
 PrecheckOutcome = Literal["run", "skip", "error"]
 # `rows`: the query found rows. `no_rows`: it found none. `max_quiet`: the backstop forced a run
@@ -65,6 +68,25 @@ class PrecheckResult:
         return self.outcome != "skip"
 
 
+@frozen
+class PrecheckDryRunResult:
+    would_run: bool
+    reason: PrecheckReason
+    since: datetime
+    now: datetime
+    row_count: int = 0
+    columns: tuple[str, ...] = ()
+    rows_text: str = ""
+    # Set only for an error the person who wrote the query can act on, such as a syntax error.
+    error: str | None = None
+
+
+def parse_precheck_query(query: str) -> ast.SelectQuery | ast.SelectSetQuery:
+    """Parse a pre-check query with its `{since}` and `{now}` placeholders bound. Raises on a bad query."""
+    placeholder = ast.Constant(value=timezone.now())
+    return parse_select(query, placeholders={"since": placeholder, "now": placeholder})
+
+
 def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None = None) -> PrecheckResult | None:
     """Evaluate the pre-check of one scout. Return None when the scout has no pre-check.
 
@@ -82,7 +104,7 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
         return None
 
     now = now or timezone.now()
-    since = _last_real_run_at(team_id, skill_name) or config.created_at
+    since = precheck_since(config)
     team = Team.objects.select_related("organization").get(pk=team_id)
     started = time.monotonic()
     error_type: str | None = None
@@ -91,7 +113,8 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
         result = PrecheckResult(outcome="run", reason="max_quiet")
     else:
         try:
-            rows_text, row_count = _run_query(team, config.precheck_query, since=since, now=now)
+            columns, rows = _run_query(team, config.precheck_query, since=since, now=now)
+            rows_text, row_count = _render_rows(columns, rows), len(rows)
         except Exception as error:
             error_type = type(error).__name__
             logger.warning(
@@ -119,18 +142,60 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
     return result
 
 
-def _last_real_run_at(team_id: int, skill_name: str) -> datetime | None:
-    return (
-        SignalScoutRun.objects.for_team(team_id)
-        .filter(skill_name=skill_name)
+def dry_run_scout_precheck(
+    team: Team, config: SignalScoutConfig, query: str, now: datetime | None = None
+) -> PrecheckDryRunResult:
+    """Run a pre-check query the way the next scheduled run would, and change nothing.
+
+    The query always runs, also when the quiet backstop would start the run without it, so the
+    person who writes the query sees its rows.
+    """
+    now = now or timezone.now()
+    since = precheck_since(config)
+    max_quiet = bool(
+        config.precheck_max_quiet_minutes and now - since >= timedelta(minutes=config.precheck_max_quiet_minutes)
+    )
+    try:
+        columns, rows = _run_query(team, query, since=since, now=now)
+    except Exception as error:
+        logger.info(
+            "signals_scout: pre-check dry run failed",
+            team_id=team.pk,
+            skill_name=config.skill_name,
+            error_type=type(error).__name__,
+        )
+        # Other errors can carry generated SQL, so only an exposed error reaches the caller as written.
+        exposed = isinstance(error, ExposedHogQLError | ExposedCHQueryError)
+        message = str(error) if exposed else "The query could not run."
+        return PrecheckDryRunResult(
+            would_run=True, reason="max_quiet" if max_quiet else "query_error", since=since, now=now, error=message
+        )
+    reason: PrecheckReason = "max_quiet" if max_quiet else "rows" if rows else "no_rows"
+    return PrecheckDryRunResult(
+        would_run=reason != "no_rows",
+        reason=reason,
+        since=since,
+        now=now,
+        row_count=len(rows),
+        columns=tuple(str(column) for column in columns),
+        rows_text=_render_rows(columns, rows),
+    )
+
+
+def precheck_since(config: SignalScoutConfig) -> datetime:
+    """The `{since}` bound: the last run that actually ran, or the config's creation."""
+    last_run_at = (
+        SignalScoutRun.objects.for_team(config.team_id)
+        .filter(skill_name=config.skill_name)
         .exclude(metadata__has_key=SCOUT_TRIAL_METADATA_KEY)
         .order_by("-created_at")
         .values_list("created_at", flat=True)
         .first()
     )
+    return last_run_at or config.created_at
 
 
-def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> tuple[str, int]:
+def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> tuple[list[Any], list[Any]]:
     inner = parse_select(query, placeholders={"since": ast.Constant(value=since), "now": ast.Constant(value=now)})
     # The outer limit caps the rows whatever the owner wrote, including a union or no LIMIT at all.
     capped = ast.SelectQuery(
@@ -146,9 +211,7 @@ def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> tup
             workload=Workload.OFFLINE,
             settings=HogQLGlobalSettings(max_execution_time=PRECHECK_TIMEOUT_S),
         )
-    rows = response.results or []
-    columns = response.columns or []
-    return _render_rows(columns, rows), len(rows)
+    return response.columns or [], response.results or []
 
 
 def _render_rows(columns: list[Any], rows: list[Any]) -> str:

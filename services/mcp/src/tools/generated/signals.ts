@@ -850,6 +850,15 @@ const scoutConfigCreate = (): ToolBase<ReturnType<typeof ScoutConfigCreateSchema
         if (params.write_scopes !== undefined) {
             body['write_scopes'] = params.write_scopes
         }
+        if (params.precheck_query !== undefined) {
+            body['precheck_query'] = params.precheck_query
+        }
+        if (params.precheck_pass_rows !== undefined) {
+            body['precheck_pass_rows'] = params.precheck_pass_rows
+        }
+        if (params.precheck_max_quiet_minutes !== undefined) {
+            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
+        }
         if (params.enabled !== undefined) {
             body['enabled'] = params.enabled
         }
@@ -1010,6 +1019,15 @@ const scoutConfigUpdate = (): ToolBase<
         if (params.write_scopes !== undefined) {
             body['write_scopes'] = params.write_scopes
         }
+        if (params.precheck_query !== undefined) {
+            body['precheck_query'] = params.precheck_query
+        }
+        if (params.precheck_pass_rows !== undefined) {
+            body['precheck_pass_rows'] = params.precheck_pass_rows
+        }
+        if (params.precheck_max_quiet_minutes !== undefined) {
+            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
+        }
         if (params.suggestion_id !== undefined) {
             body['suggestion_id'] = params.suggestion_id
         }
@@ -1019,6 +1037,35 @@ const scoutConfigUpdate = (): ToolBase<
             body,
         })
         return await withPostHogUrl(context, result, `/inbox/${result.id}`)
+    },
+})
+
+const ScoutConfigPrecheckTestSchema = () => {
+    const SignalsScoutConfigPrecheckTestBody = orvalSchemas.SignalsScoutConfigPrecheckTestBody()
+    const SignalsScoutConfigPrecheckTestParams = orvalSchemas.SignalsScoutConfigPrecheckTestParams()
+    return SignalsScoutConfigPrecheckTestParams.omit({ project_id: true }).extend(
+        SignalsScoutConfigPrecheckTestBody.shape
+    )
+}
+
+const scoutConfigPrecheckTest = (): ToolBase<
+    ReturnType<typeof ScoutConfigPrecheckTestSchema>,
+    Schemas.SignalScoutPrecheckTest
+> => ({
+    name: 'scout-config-precheck-test',
+    schema: ScoutConfigPrecheckTestSchema(),
+    handler: async (context: Context, params: z.infer<ReturnType<typeof ScoutConfigPrecheckTestSchema>>) => {
+        const projectId = await context.stateManager.getProjectId()
+        const body: Record<string, unknown> = {}
+        if (params.precheck_query !== undefined) {
+            body['precheck_query'] = params.precheck_query
+        }
+        const result = await context.api.request<Schemas.SignalScoutPrecheckTest>({
+            method: 'POST',
+            path: `/api/projects/${encodeURIComponent(String(projectId))}/signals/scout/configs/${encodeURIComponent(String(params.id))}/precheck_test/`,
+            body,
+        })
+        return result
     },
 })
 
@@ -1914,6 +1961,15 @@ const signalsScoutConfigCreate = (): ToolBase<
         if (params.write_scopes !== undefined) {
             body['write_scopes'] = params.write_scopes
         }
+        if (params.precheck_query !== undefined) {
+            body['precheck_query'] = params.precheck_query
+        }
+        if (params.precheck_pass_rows !== undefined) {
+            body['precheck_pass_rows'] = params.precheck_pass_rows
+        }
+        if (params.precheck_max_quiet_minutes !== undefined) {
+            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
+        }
         if (params.enabled !== undefined) {
             body['enabled'] = params.enabled
         }
@@ -2073,6 +2129,15 @@ const signalsScoutConfigUpdate = (): ToolBase<
         }
         if (params.write_scopes !== undefined) {
             body['write_scopes'] = params.write_scopes
+        }
+        if (params.precheck_query !== undefined) {
+            body['precheck_query'] = params.precheck_query
+        }
+        if (params.precheck_pass_rows !== undefined) {
+            body['precheck_pass_rows'] = params.precheck_pass_rows
+        }
+        if (params.precheck_max_quiet_minutes !== undefined) {
+            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
         }
         if (params.suggestion_id !== undefined) {
             body['suggestion_id'] = params.suggestion_id
@@ -2602,6 +2667,7 @@ export const GENERATED_TOOLS: Record<string, () => ToolBase<ZodObjectAny>> = {
     'scout-config-list': scoutConfigList,
     'scout-config-sync': scoutConfigSync,
     'scout-config-update': scoutConfigUpdate,
+    'scout-config-precheck-test': scoutConfigPrecheckTest,
     'scout-create': scoutCreate,
     'scout-edit-report': scoutEditReport,
     'scout-emit-report': scoutEmitReport,
