@@ -22,6 +22,8 @@ STAGE_WEIGHTS: dict[LifecycleStage, float] = {
 
 MIN_WEEKLY_COUNT = 3
 
+FLAT_WEIGHTS: dict[LifecycleStage, float] = dict.fromkeys(STAGE_WEIGHTS, 1.0)
+
 # Only the fallback when Jev is unavailable, checked in order. Deletion counts only for accounts and their
 # owners, because most `*_deleted` events are routine product actions, not churn.
 _STAGE_REGEXES: tuple[tuple[LifecycleStage, str], ...] = (
