@@ -9,7 +9,6 @@ import { urls } from 'scenes/urls'
 import { scoutFleetLogic } from '../../../logics/scoutFleetLogic'
 import { compareScoutsByName, SCOUT_GROUP_LABEL, SCOUT_GROUP_ORDER, ScoutRosterRow } from '../../../utils/scoutGroups'
 import { showsScoutOwnership } from '../../../utils/scoutOwners'
-import { precheckSkippedAt } from '../../../utils/scoutPrecheck'
 import { runStripEmptyLabel, SCOUT_ROSTER_WINDOW_DAYS } from '../../../utils/scoutRunsWindow'
 import { ScoutCadenceLabel } from './ScoutCadenceLabel'
 import { ScoutEnabledSwitch } from './ScoutConfigControls'
@@ -156,20 +155,13 @@ export function ScoutsRosterTable({ compact }: { compact: boolean }): JSX.Elemen
                     // newest run shares one vertical line; the header follows its content.
                     align: 'right',
                     render: (_, row: ScoutRosterRow) => {
-                        const rollup = rollups.get(row.config.skill_name)
-                        const runs = rollup?.runs ?? []
-                        const skippedAt = precheckSkippedAt(
-                            row.config,
-                            rollup?.latestRun,
-                            scoutRunsLoadedOnce && (!!rollup || scoutRunsCoverFleet)
-                        )
-                        if (runs.length || skippedAt) {
+                        const runs = rollups.get(row.config.skill_name)?.runs ?? []
+                        if (runs.length) {
                             return (
                                 <ScoutRunBoxes
                                     runs={runs}
                                     costs={scoutRunCosts}
                                     costThreshold={expensiveRunCostThreshold}
-                                    skippedAt={skippedAt}
                                 />
                             )
                         }

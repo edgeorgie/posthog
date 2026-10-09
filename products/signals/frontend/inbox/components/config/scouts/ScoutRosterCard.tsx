@@ -9,7 +9,6 @@ import { urls } from 'scenes/urls'
 
 import { scoutFleetLogic } from '../../../logics/scoutFleetLogic'
 import { nextRunAt, SCOUT_GROUP_LABEL, ScoutRosterRow, scoutSubtitle } from '../../../utils/scoutGroups'
-import { precheckSkippedAt } from '../../../utils/scoutPrecheck'
 import { runStripEmptyLabel, scoutDisplayName } from '../../../utils/scoutRunsWindow'
 import { inboxCardRowClassName } from '../../cards/inboxCardRowClassName'
 import { ScoutDeprecationBadge, ScoutExemptionBadge, ScoutLifecycleBadge } from './ScoutBadges'
@@ -57,11 +56,6 @@ export const ScoutRosterCard = memo(function ScoutRosterCard({ row }: { row: Sco
     const rollup = rollups.get(config.skill_name)
     const costRollup = scoutCostRollups.get(config.skill_name)
     const runs = rollup?.runs ?? []
-    const skippedAt = precheckSkippedAt(
-        config,
-        rollup?.latestRun,
-        scoutRunsLoadedOnce && (!!rollup || scoutRunsCoverFleet)
-    )
     const subtitle = scoutSubtitle(config, rollup, now)
     // Only enabled scouts have a next run; a paused one would otherwise carry an empty dash.
     const hasNextRun = nextRunAt(config, currentTeam?.timezone ?? 'UTC', now) !== null
@@ -116,13 +110,8 @@ export const ScoutRosterCard = memo(function ScoutRosterCard({ row }: { row: Sco
             <div className="flex shrink-0 items-center justify-between gap-4 @lg:justify-end @lg:self-stretch @lg:border-l @lg:border-primary @lg:pl-3">
                 {/* A fixed strip width on wide rows keeps every row's newest run on one vertical line. */}
                 <div className="flex min-w-0 justify-end @lg:w-52">
-                    {runs.length > 0 || skippedAt ? (
-                        <ScoutRunBoxes
-                            runs={runs}
-                            costs={scoutRunCosts}
-                            costThreshold={expensiveRunCostThreshold}
-                            skippedAt={skippedAt}
-                        />
+                    {runs.length > 0 ? (
+                        <ScoutRunBoxes runs={runs} costs={scoutRunCosts} costThreshold={expensiveRunCostThreshold} />
                     ) : (
                         // Until the runs request has landed once, an empty rollup means "not
                         // loaded", not "never ran"; the poll retries a failed load on its own. Past
