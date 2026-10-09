@@ -36,6 +36,8 @@ const BOX_CLASS = 'block h-3 w-2 shrink-0 rounded-[2px] transition-transform dur
 // pixels when the costs land a moment after the runs.
 const COLUMN_CLASS = 'flex h-4 w-2 shrink-0 flex-col items-center justify-end gap-px'
 const MARKER_CLASS = 'block h-[3px] w-2 rounded-[1px] bg-brand-yellow'
+// Hollow and dashed, so a skipped tick reads as "checked, nothing to do" and not as a queued run.
+const SKIPPED_BOX_CLASS = 'block h-3 w-2 shrink-0 rounded-[2px] border border-dashed border-border-bold'
 
 function runTooltip(run: SignalScoutRunSummary, now: Date, costUsd: number | undefined, expensive: boolean): string {
     const parts = [scoutRunOutcomeLabel(run, now)]
@@ -59,6 +61,17 @@ function runTooltip(run: SignalScoutRunSummary, now: Date, costUsd: number | und
     return parts.join(' · ')
 }
 
+function SkippedTickBox({ skippedAt }: { skippedAt: string }): JSX.Element {
+    const tooltip = `Skipped · the pre-check found nothing new · ${humanFriendlyDetailedTime(skippedAt)}`
+    return (
+        <Tooltip title={tooltip}>
+            <span className={COLUMN_CLASS} data-attr="scout-run-skipped">
+                <span className={SKIPPED_BOX_CLASS} role="img" aria-label={tooltip} />
+            </span>
+        </Tooltip>
+    )
+}
+
 /**
  * One small box per run in the visible window, oldest on the left. Each box
  * links out to cloud's Tasks UI via the run's relative `task_url`; runs without
@@ -72,15 +85,20 @@ function runTooltip(run: SignalScoutRunSummary, now: Date, costUsd: number | und
  * scouts hold different numbers of runs, so right-anchoring puts every row's newest run on one
  * vertical line. Left-aligning instead scatters the newest run across the column by run count,
  * which is the one box a reader is scanning for.
+ *
+ * `skippedAt` adds one hollow box at the newest end when the last scheduled tick stopped at the
+ * scout's pre-check. A skip writes no run, so without it a quiet scout looks like one that stopped.
  */
 export function ScoutRunBoxes({
     runs,
     costs,
     costThreshold,
+    skippedAt = null,
 }: {
     runs: SignalScoutRunSummary[]
     costs?: Map<string, number>
     costThreshold?: number | null
+    skippedAt?: string | null
 }): JSX.Element | null {
     const visible = useMemo(() => {
         const now = new Date()
@@ -97,7 +115,12 @@ export function ScoutRunBoxes({
     }, [runs, costs, costThreshold])
 
     if (runs.length === 0) {
-        return null
+        return skippedAt ? (
+            <div className="flex items-center gap-1">
+                <span className="text-xs text-muted">Nothing new</span>
+                <SkippedTickBox skippedAt={skippedAt} />
+            </div>
+        ) : null
     }
     const hidden = runs.length - visible.length
 
@@ -107,6 +130,7 @@ export function ScoutRunBoxes({
 
     return (
         <div className="flex flex-row-reverse items-center gap-1 min-w-0 overflow-hidden">
+            {skippedAt ? <SkippedTickBox skippedAt={skippedAt} /> : null}
             {newestFirst.map(({ run, outcome, expensive, tooltip }) => {
                 const boxClass = `${BOX_CLASS} ${OUTCOME_BOX_CLASS[outcome]}`
                 const boxTooltip = run.task_url ? `${tooltip} · open task run` : tooltip
