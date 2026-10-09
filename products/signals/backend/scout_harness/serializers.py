@@ -3113,25 +3113,16 @@ _SCOUT_MODEL_HELP = (
 
 
 _PRECHECK_QUERY_HELP = (
-    "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, "
-    "the run is skipped: no sandbox, no model call, and no run row. When it returns rows, or the "
-    "query fails, the run starts as usual. Use `{since}` (the start of the last run that ran, or "
-    "when the scout was created) and `{now}` to look only at what is new, e.g. "
-    "`SELECT count() AS errors FROM events WHERE event = '$exception' AND timestamp > {since} "
-    "HAVING errors > 10`. Only scheduled runs evaluate it: a manual or workflow run always starts. "
+    "Optional HogQL `SELECT` a scheduled run evaluates before it starts. When it returns no rows, or "
+    "one row with one false value (`false`, `0`, null or empty), the run is skipped: no sandbox, no "
+    "model call, and no run row. Any other result starts the run, and the scout reads the rows. A "
+    "query error also starts the run. Use `{since}` (the start of the last run that ran, or when the "
+    "scout was created) and `{now}` to look only at what is new, e.g. `SELECT count() FROM events "
+    "WHERE event = '$exception' AND timestamp > {since}`. To run at least once a week however quiet "
+    "it is, add `OR {since} < {now} - INTERVAL 7 DAY` to the condition. Only scheduled runs evaluate "
+    "it: a manual or workflow run always starts. "
     f"The query stops after {PRECHECK_TIMEOUT_S} seconds and reads at most {PRECHECK_MAX_ROWS} rows. "
     "Try a query with `scout-config-precheck-test` before you save it. Null or blank turns the pre-check off."
-)
-
-_PRECHECK_PASS_ROWS_HELP = (
-    "Whether a run that the pre-check starts gets the pre-check rows in its prompt, so the scout "
-    "starts from what the query found. Defaults to true."
-)
-
-_PRECHECK_MAX_QUIET_MINUTES_HELP = (
-    "Optional backstop in minutes (30–43200). A scheduled run starts without the pre-check when the "
-    "last run that ran is at least this old, so the scout's baselines and memory stay current. Null "
-    "means a scout with a pre-check can stay quiet for any length of time."
 )
 
 
@@ -3508,10 +3499,6 @@ class SignalScoutConfigSerializer(serializers.ModelSerializer):
         help_text=_SCOUT_MODEL_HELP,
     )
     precheck_query = serializers.CharField(read_only=True, allow_null=True, help_text=_PRECHECK_QUERY_HELP)
-    precheck_pass_rows = serializers.BooleanField(read_only=True, help_text=_PRECHECK_PASS_ROWS_HELP)
-    precheck_max_quiet_minutes = serializers.IntegerField(
-        read_only=True, allow_null=True, help_text=_PRECHECK_MAX_QUIET_MINUTES_HELP
-    )
     last_run_at = serializers.DateTimeField(
         read_only=True,
         allow_null=True,
@@ -3653,8 +3640,6 @@ class SignalScoutConfigSerializer(serializers.ModelSerializer):
             "repositories",
             "write_scopes",
             "precheck_query",
-            "precheck_pass_rows",
-            "precheck_max_quiet_minutes",
             "last_run_at",
             "consecutive_failure_count",
             "status_changed_at",
@@ -3744,14 +3729,6 @@ class _ScoutConfigCapabilityFieldsMixin(serializers.Serializer):
         trim_whitespace=False,
         max_length=PRECHECK_MAX_QUERY_LENGTH,
         help_text=_PRECHECK_QUERY_HELP,
-    )
-    precheck_pass_rows = serializers.BooleanField(required=False, help_text=_PRECHECK_PASS_ROWS_HELP)
-    precheck_max_quiet_minutes = serializers.IntegerField(
-        required=False,
-        allow_null=True,
-        min_value=30,
-        max_value=43200,
-        help_text=_PRECHECK_MAX_QUIET_MINUTES_HELP,
     )
 
     def validate_run_cron_schedule(self, value: str | None) -> str | None:
@@ -3977,8 +3954,6 @@ class SignalScoutConfigUpdateSerializer(_ScoutConfigCapabilityFieldsMixin, seria
             "repositories",
             "write_scopes",
             "precheck_query",
-            "precheck_pass_rows",
-            "precheck_max_quiet_minutes",
             "suggestion_id",
         ]
 
@@ -4077,7 +4052,7 @@ class SignalScoutConfigCreateSerializer(SignalScoutConfigOptionsSerializer):
 class ScoutPrecheckReason(models.TextChoices):
     ROWS = "rows"
     NO_ROWS = "no_rows"
-    MAX_QUIET = "max_quiet"
+    FALSE_VALUE = "false_value"
     QUERY_ERROR = "query_error"
 
 
@@ -4106,9 +4081,8 @@ class SignalScoutPrecheckTestSerializer(serializers.Serializer):
         choices=ScoutPrecheckReason.choices,
         help_text=(
             "Why: `rows` (the query found rows), `no_rows` (it found none, so the run is skipped), "
-            "`max_quiet` (the last run that ran is older than `precheck_max_quiet_minutes`, so the run "
-            "starts without the query), or `query_error` (the query failed, so the run starts as if "
-            "there were no pre-check)."
+            "`false_value` (it returned one false value, so the run is skipped), or `query_error` (the "
+            "query failed, so the run starts as if there were no pre-check)."
         ),
     )
     since = serializers.DateTimeField(

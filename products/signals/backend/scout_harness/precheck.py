@@ -1,9 +1,11 @@
 """Pre-check for scheduled scout runs.
 
 A scout config can carry a HogQL query that a scheduled run evaluates before it starts. When the
-query returns no rows there is nothing new to look at, so the run is skipped before it creates a
-run row, a sandbox, or an LLM call. Only the coordinator's scheduled dispatch evaluates it: a
-manual, workflow, or check run already has a reason to run.
+query returns no rows, or one row with one false value (`false`, `0`, null or empty), there is
+nothing new to look at, so the run is skipped before it creates a run row, a sandbox, or an LLM
+call. Any other result starts the run. The single-value rule lets a `SELECT count() ...` gate work
+as written, because a count always returns one row. Only the coordinator's scheduled dispatch
+evaluates it: a manual, workflow, or check run already has a reason to run.
 
 A skip writes nothing. The coordinator stamped `last_run_at` (the dispatch anchor) when it
 dispatched the run, so the next tick does not dispatch it again at once. `{since}` reads the last
@@ -18,7 +20,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Literal
 
 from django.utils import timezone
@@ -50,9 +52,9 @@ PRECHECK_MAX_TEXT_BYTES = 8 * 1024
 PRECHECK_MAX_QUERY_LENGTH = 10_000
 
 PrecheckOutcome = Literal["run", "skip", "error"]
-# `rows`: the query found rows. `no_rows`: it found none. `max_quiet`: the backstop forced a run
-# without the query. `query_error`: the query failed and the run continues.
-PrecheckReason = Literal["rows", "no_rows", "max_quiet", "query_error"]
+# `rows`: the query found rows. `no_rows`: it found none. `false_value`: it returned one false
+# value. `query_error`: the query failed and the run continues.
+PrecheckReason = Literal["rows", "no_rows", "false_value", "query_error"]
 
 
 @frozen
@@ -72,6 +74,10 @@ class PrecheckResult:
 class _PrecheckRows:
     columns: list[Any]
     rows: list[Any]
+
+    @property
+    def is_single_false_value(self) -> bool:
+        return len(self.rows) == 1 and len(self.rows[0]) == 1 and self.rows[0][0] in (None, False, 0, "")
 
 
 @frozen
@@ -101,7 +107,7 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
     config = (
         SignalScoutConfig.objects.for_team(team_id)
         .filter(skill_name=skill_name)
-        .only("id", "team_id", "skill_name", "created_at", "status", "precheck_query", "precheck_max_quiet_minutes")
+        .only("id", "team_id", "skill_name", "created_at", "status", "precheck_query")
         .first()
     )
     # A paused lane only runs as a breaker probe, which exists to find out whether the lane can
@@ -115,28 +121,20 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
     started = time.monotonic()
     error_type: str | None = None
 
-    if config.precheck_max_quiet_minutes and now - since >= timedelta(minutes=config.precheck_max_quiet_minutes):
-        result = PrecheckResult(outcome="run", reason="max_quiet")
+    try:
+        found = _run_query(team, config.precheck_query, since=since, now=now)
+    except Exception as error:
+        error_type = type(error).__name__
+        logger.warning(
+            "signals_scout: pre-check query failed, running the scout",
+            team_id=team_id,
+            skill_name=skill_name,
+            error_type=error_type,
+            exc_info=True,
+        )
+        result = PrecheckResult(outcome="error", reason="query_error")
     else:
-        try:
-            found = _run_query(team, config.precheck_query, since=since, now=now)
-            rows_text, row_count = _render_rows(found), len(found.rows)
-        except Exception as error:
-            error_type = type(error).__name__
-            logger.warning(
-                "signals_scout: pre-check query failed, running the scout",
-                team_id=team_id,
-                skill_name=skill_name,
-                error_type=error_type,
-                exc_info=True,
-            )
-            result = PrecheckResult(outcome="error", reason="query_error")
-        else:
-            result = (
-                PrecheckResult(outcome="run", reason="rows", row_count=row_count, rows_text=rows_text)
-                if row_count
-                else PrecheckResult(outcome="skip", reason="no_rows")
-            )
+        result = _result_from_rows(found)
 
     _capture_precheck_evaluated(
         team=team,
@@ -151,16 +149,9 @@ def evaluate_scout_precheck(team_id: int, skill_name: str, now: datetime | None 
 def dry_run_scout_precheck(
     team: Team, config: SignalScoutConfig, query: str, now: datetime | None = None
 ) -> PrecheckDryRunResult:
-    """Run a pre-check query the way the next scheduled run would, and change nothing.
-
-    The query always runs, also when the quiet backstop would start the run without it, so the
-    person who writes the query sees its rows.
-    """
+    """Run a pre-check query the way the next scheduled run would, and change nothing."""
     now = now or timezone.now()
     since = precheck_since(config)
-    max_quiet = bool(
-        config.precheck_max_quiet_minutes and now - since >= timedelta(minutes=config.precheck_max_quiet_minutes)
-    )
     try:
         found = _run_query(team, query, since=since, now=now)
     except Exception as error:
@@ -173,13 +164,11 @@ def dry_run_scout_precheck(
         # Other errors can carry generated SQL, so only an exposed error reaches the caller as written.
         exposed = isinstance(error, ExposedHogQLError | ExposedCHQueryError)
         message = str(error) if exposed else "The query could not run."
-        return PrecheckDryRunResult(
-            would_run=True, reason="max_quiet" if max_quiet else "query_error", since=since, now=now, error=message
-        )
-    reason: PrecheckReason = "max_quiet" if max_quiet else "rows" if found.rows else "no_rows"
+        return PrecheckDryRunResult(would_run=True, reason="query_error", since=since, now=now, error=message)
+    result = _result_from_rows(found)
     return PrecheckDryRunResult(
-        would_run=reason != "no_rows",
-        reason=reason,
+        would_run=result.should_run,
+        reason=result.reason,
         since=since,
         now=now,
         row_count=len(found.rows),
@@ -201,14 +190,17 @@ def precheck_since(config: SignalScoutConfig) -> datetime:
     return last_run_at or config.created_at
 
 
+def _result_from_rows(found: _PrecheckRows) -> PrecheckResult:
+    if not found.rows:
+        return PrecheckResult(outcome="skip", reason="no_rows")
+    if found.is_single_false_value:
+        return PrecheckResult(outcome="skip", reason="false_value", row_count=1)
+    return PrecheckResult(outcome="run", reason="rows", row_count=len(found.rows), rows_text=_render_rows(found))
+
+
 def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> _PrecheckRows:
-    inner = parse_select(query, placeholders={"since": ast.Constant(value=since), "now": ast.Constant(value=now)})
-    # The outer limit caps the rows whatever the owner wrote, including a union or no LIMIT at all.
-    capped = ast.SelectQuery(
-        select=[ast.Field(chain=["*"])],
-        select_from=ast.JoinExpr(table=inner),
-        limit=ast.Constant(value=PRECHECK_MAX_ROWS),
-    )
+    parsed = parse_select(query, placeholders={"since": ast.Constant(value=since), "now": ast.Constant(value=now)})
+    capped = _cap_rows(parsed)
     with tags_context(product=Product.SIGNALS, feature=Feature.ENRICHMENT, team_id=team.pk):
         response = execute_hogql_query(
             query_type="scout_precheck",
@@ -217,7 +209,25 @@ def _run_query(team: Team, query: str, *, since: datetime, now: datetime) -> _Pr
             workload=Workload.OFFLINE,
             settings=HogQLGlobalSettings(max_execution_time=PRECHECK_TIMEOUT_S),
         )
-    return _PrecheckRows(columns=response.columns or [], rows=response.results or [])
+    return _PrecheckRows(columns=response.columns or [], rows=(response.results or [])[:PRECHECK_MAX_ROWS])
+
+
+def _cap_rows(parsed: ast.SelectQuery | ast.SelectSetQuery) -> ast.SelectQuery:
+    """Cap the rows whatever the owner wrote, including a union or no LIMIT at all."""
+    if isinstance(parsed, ast.SelectQuery):
+        # Set the limit in place. `SELECT *` over a subquery loses unaliased columns, so a wrapper
+        # would turn `SELECT false` into an unnamed `1`.
+        current = parsed.limit
+        if not (
+            isinstance(current, ast.Constant) and isinstance(current.value, int) and current.value <= PRECHECK_MAX_ROWS
+        ):
+            parsed.limit = ast.Constant(value=PRECHECK_MAX_ROWS)
+        return parsed
+    return ast.SelectQuery(
+        select=[ast.Field(chain=["*"])],
+        select_from=ast.JoinExpr(table=parsed),
+        limit=ast.Constant(value=PRECHECK_MAX_ROWS),
+    )
 
 
 def _render_rows(found: _PrecheckRows) -> str:

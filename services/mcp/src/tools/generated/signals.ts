@@ -853,12 +853,6 @@ const scoutConfigCreate = (): ToolBase<ReturnType<typeof ScoutConfigCreateSchema
         if (params.precheck_query !== undefined) {
             body['precheck_query'] = params.precheck_query
         }
-        if (params.precheck_pass_rows !== undefined) {
-            body['precheck_pass_rows'] = params.precheck_pass_rows
-        }
-        if (params.precheck_max_quiet_minutes !== undefined) {
-            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
-        }
         if (params.enabled !== undefined) {
             body['enabled'] = params.enabled
         }
@@ -1050,12 +1044,6 @@ const scoutConfigUpdate = (): ToolBase<
         }
         if (params.precheck_query !== undefined) {
             body['precheck_query'] = params.precheck_query
-        }
-        if (params.precheck_pass_rows !== undefined) {
-            body['precheck_pass_rows'] = params.precheck_pass_rows
-        }
-        if (params.precheck_max_quiet_minutes !== undefined) {
-            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
         }
         if (params.suggestion_id !== undefined) {
             body['suggestion_id'] = params.suggestion_id
@@ -1964,12 +1952,6 @@ const signalsScoutConfigCreate = (): ToolBase<
         if (params.precheck_query !== undefined) {
             body['precheck_query'] = params.precheck_query
         }
-        if (params.precheck_pass_rows !== undefined) {
-            body['precheck_pass_rows'] = params.precheck_pass_rows
-        }
-        if (params.precheck_max_quiet_minutes !== undefined) {
-            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
-        }
         if (params.enabled !== undefined) {
             body['enabled'] = params.enabled
         }
@@ -2132,12 +2114,6 @@ const signalsScoutConfigUpdate = (): ToolBase<
         }
         if (params.precheck_query !== undefined) {
             body['precheck_query'] = params.precheck_query
-        }
-        if (params.precheck_pass_rows !== undefined) {
-            body['precheck_pass_rows'] = params.precheck_pass_rows
-        }
-        if (params.precheck_max_quiet_minutes !== undefined) {
-            body['precheck_max_quiet_minutes'] = params.precheck_max_quiet_minutes
         }
         if (params.suggestion_id !== undefined) {
             body['suggestion_id'] = params.suggestion_id
