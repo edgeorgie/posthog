@@ -531,6 +531,7 @@ export function DataTable({
                                                 groupTypes={groupTypes}
                                                 metadataSource={query.source}
                                                 placeholder={<span className="not-italic">Add column left</span>}
+                                                placeholderClass=""
                                                 data-attr="datatable-add-column-left"
                                                 type="tertiary"
                                                 fullWidth
@@ -575,6 +576,7 @@ export function DataTable({
                                                 groupTypes={groupTypes}
                                                 metadataSource={query.source}
                                                 placeholder={<span className="not-italic">Add column right</span>}
+                                                placeholderClass=""
                                                 data-attr="datatable-add-column-right"
                                                 type="tertiary"
                                                 fullWidth
